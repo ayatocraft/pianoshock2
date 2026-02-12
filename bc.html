@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Pianoshock 2</title>
+
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
+
+<style>
+body{
+  margin:0;
+  background:#e5e5e7;
+  font-family:-apple-system;
+  text-align:center;
+}
+
+#controls{
+  padding:15px;
+}
+
+button,input{
+  padding:8px 12px;
+  margin:4px;
+  border-radius:10px;
+  border:none;
+  background:#d1d1d6;
+  font-size:14px;
+}
+
+#keyboardWrapper{
+  overflow-x:auto;
+  width:100%;
+}
+
+#keyboard{
+  position:relative;
+  height:220px;
+  margin:20px auto;
+}
+
+.white{
+  position:relative;
+  display:inline-block;
+  width:22px;
+  height:200px;
+  background:linear-gradient(to bottom,#fff,#ddd);
+  border:1px solid #aaa;
+  border-radius:0 0 4px 4px;
+  box-sizing:border-box;
+}
+
+.black{
+  position:absolute;
+  width:14px;
+  height:120px;
+  background:linear-gradient(to bottom,#333,#000);
+  border-radius:0 0 3px 3px;
+  z-index:2;
+}
+
+.active{
+  background:#4da3ff !important;
+}
+
+#status{
+  display:block;
+  margin-top:8px;
+}
+</style>
+</head>
+<body>
+
+<div id="controls">
+<button id="start">音声ON</button>
+<button id="connectMIDI">MIDI接続</button>
+<button id="recordBtn">録音開始</button>
+<button id="downloadMidi">録音MIDI保存</button>
+<input type="file" id="uploadMidi" accept=".mid">
+<button id="playUploaded">お手本再生</button>
+<span id="status"></span>
+</div>
+
+<div id="keyboardWrapper">
+  <div id="keyboard"></div>
+</div>
+
+<script>
+let sampler;
+let recording=false;
+let recordedNotes=[];
+let activeNotes={};
+let recordStart;
+let uploadedMidi;
+
+const startNote=21;  // A0
+const endNote=108;   // C8
+const whitePattern=[0,2,4,5,7,9,11];
+
+const keyboard=document.getElementById("keyboard");
+
+/* ---------- 音初期化 ---------- */
+document.getElementById("start").onclick=async()=>{
+  await Tone.start();
+
+  sampler = new Tone.Sampler({
+    urls:{
+      A0:"A0.mp3",
+      C1:"C1.mp3",
+      "D#1":"Ds1.mp3",
+      "F#1":"Fs1.mp3",
+      A1:"A1.mp3",
+      C2:"C2.mp3",
+      "D#2":"Ds2.mp3",
+      "F#2":"Fs2.mp3",
+      A2:"A2.mp3",
+      C3:"C3.mp3",
+      "D#3":"Ds3.mp3",
+      "F#3":"Fs3.mp3",
+      A3:"A3.mp3",
+      C4:"C4.mp3",
+      "D#4":"Ds4.mp3",
+      "F#4":"Fs4.mp3",
+      A4:"A4.mp3",
+      C5:"C5.mp3",
+      "D#5":"Ds5.mp3",
+      "F#5":"Fs5.mp3",
+      A5:"A5.mp3",
+      C6:"C6.mp3",
+      "D#6":"Ds6.mp3",
+      "F#6":"Fs6.mp3",
+      A6:"A6.mp3",
+      C7:"C7.mp3",
+      "D#7":"Ds7.mp3",
+      "F#7":"Fs7.mp3",
+      A7:"A7.mp3",
+      C8:"C8.mp3"
+    },
+    release:1,
+    baseUrl:"https://tonejs.github.io/audio/salamander/"
+  }).toDestination();
+
+  document.getElementById("status").innerText="音声ON";
+};
+
+/* ---------- 鍵盤生成 ---------- */
+let whiteIndex=0;
+let whitePositions={};
+
+for(let n=startNote;n<=endNote;n++){
+  if(whitePattern.includes(n%12)){
+    let key=document.createElement("div");
+    key.className="white";
+    key.dataset.note=n;
+    key.style.left=(whiteIndex*22)+"px";
+    key.style.position="absolute";
+    keyboard.appendChild(key);
+    whitePositions[n]=whiteIndex*22;
+    whiteIndex++;
+  }
+}
+
+for(let n=startNote;n<=endNote;n++){
+  if(!whitePattern.includes(n%12)){
+    let prev=n-1;
+    while(!whitePositions[prev]) prev--;
+    let key=document.createElement("div");
+    key.className="black";
+    key.dataset.note=n;
+    key.style.left=(whitePositions[prev]+15)+"px";
+    keyboard.appendChild(key);
+  }
+}
+
+keyboard.style.width=(whiteIndex*22)+"px";
+
+/* ---------- 光らせる ---------- */
+function highlight(note,on){
+  const el=document.querySelector("[data-note='"+note+"']");
+  if(el){
+    if(on) el.classList.add("active");
+    else el.classList.remove("active");
+  }
+}
+
+/* ---------- 演奏 ---------- */
+function noteOn(note){
+  if(!sampler) return;
+  sampler.triggerAttack(Tone.Frequency(note,"midi"));
+  highlight(note,true);
+  if(recording) activeNotes[note]=Tone.now();
+}
+
+function noteOff(note){
+  if(!sampler) return;
+  sampler.triggerRelease(Tone.Frequency(note,"midi"));
+  highlight(note,false);
+  if(recording && activeNotes[note]){
+    recordedNotes.push({
+      midi:note,
+      time:activeNotes[note]-recordStart,
+      duration:Tone.now()-activeNotes[note]
+    });
+    delete activeNotes[note];
+  }
+}
+
+/* ---------- MIDI接続 ---------- */
+document.getElementById("connectMIDI").onclick=async()=>{
+  const access=await navigator.requestMIDIAccess();
+  const input=[...access.inputs.values()][0];
+  input.onmidimessage=e=>{
+    const [cmd,note,vel]=e.data;
+    if(cmd===144 && vel>0) noteOn(note);
+    if(cmd===128 || (cmd===144 && vel===0)) noteOff(note);
+  };
+  document.getElementById("status").innerText="MIDI接続OK";
+};
+
+/* ---------- キーボード入力 ---------- */
+const keyMap={
+  a:60,s:62,d:64,f:65,g:67,h:69,j:71,k:72,
+  w:61,e:63,t:66,y:68,u:70
+};
+
+document.addEventListener("keydown",e=>{
+  if(keyMap[e.key]) noteOn(keyMap[e.key]);
+});
+document.addEventListener("keyup",e=>{
+  if(keyMap[e.key]) noteOff(keyMap[e.key]);
+});
+
+/* ---------- 録音 ---------- */
+document.getElementById("recordBtn").onclick=()=>{
+  if(!recording){
+    recordedNotes=[];
+    recordStart=Tone.now();
+    recording=true;
+    document.getElementById("status").innerText="録音中";
+  }else{
+    recording=false;
+    document.getElementById("status").innerText="録音停止";
+  }
+};
+
+/* ---------- MIDI保存 ---------- */
+document.getElementById("downloadMidi").onclick=()=>{
+  if(recordedNotes.length===0) return;
+  const midi=new Midi();
+  const track=midi.addTrack();
+  recordedNotes.forEach(n=>{
+    track.addNote({
+      midi:n.midi,
+      time:n.time,
+      duration:n.duration
+    });
+  });
+  const blob=new Blob([midi.toArray()],{type:"audio/midi"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="recording.mid";
+  a.click();
+};
+
+/* ---------- MIDIアップロード ---------- */
+document.getElementById("uploadMidi").addEventListener("change",async e=>{
+  const file=e.target.files[0];
+  const buffer=await file.arrayBuffer();
+  uploadedMidi=new Midi(buffer);
+});
+
+/* ---------- お手本再生 ---------- */
+document.getElementById("playUploaded").onclick=()=>{
+  if(!uploadedMidi) return;
+  uploadedMidi.tracks.forEach(track=>{
+    track.notes.forEach(n=>{
+      setTimeout(()=>{
+        noteOn(n.midi);
+        setTimeout(()=>noteOff(n.midi),n.duration*1000);
+      },n.time*1000);
+    });
+  });
+};
+</script>
+
+</body>
+</html>

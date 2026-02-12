@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Pianoshock 2 Stable Core</title>
+<script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
+<style>
+body{margin:0;background:#e5e5e7;font-family:-apple-system;text-align:center;}
+#controls{padding:15px;}
+button,input{padding:8px;margin:4px;border-radius:8px;border:none;background:#d1d1d6;}
+#keyboard{position:relative;width:1000px;height:220px;margin:20px auto;}
+.white{position:absolute;width:24px;height:200px;background:white;border:1px solid #aaa;z-index:1;}
+.black{position:absolute;width:16px;height:120px;background:black;z-index:2;}
+.active{background:#4da3ff!important;}
+</style>
+</head>
+<body>
+
+<div id="controls">
+<button id="start">音声ON</button>
+<button id="midi">MIDI接続</button>
+<button id="rec">録音</button>
+<input type="file" id="upload" accept=".mid">
+<button id="playMidi">お手本再生</button>
+<span id="status"></span>
+</div>
+
+<div id="keyboard"></div>
+
+<script>
+let synth;
+let offset=0;
+let recording=false;
+let recorded=[];
+let activeNotes={};
+let recordStart;
+let uploadedMidi;
+
+/* 音初期化 */
+document.getElementById("start").onclick=async()=>{
+ await Tone.start();
+synth = new Tone.Sampler({
+ urls: {
+   A0: "A0.mp3",
+   C1: "C1.mp3",
+   "D#1": "Ds1.mp3",
+   "F#1": "Fs1.mp3",
+   A1: "A1.mp3",
+   C2: "C2.mp3",
+   "D#2": "Ds2.mp3",
+   "F#2": "Fs2.mp3",
+   A2: "A2.mp3",
+   C3: "C3.mp3",
+   "D#3": "Ds3.mp3",
+   "F#3": "Fs3.mp3",
+   A3: "A3.mp3",
+   C4: "C4.mp3",
+   "D#4": "Ds4.mp3",
+   "F#4": "Fs4.mp3",
+   A4: "A4.mp3",
+   C5: "C5.mp3",
+   "D#5": "Ds5.mp3",
+   "F#5": "Fs5.mp3",
+   A5: "A5.mp3",
+   C6: "C6.mp3",
+   "D#6": "Ds6.mp3",
+   "F#6": "Fs6.mp3",
+   A6: "A6.mp3",
+   C7: "C7.mp3",
+   "D#7": "Ds7.mp3",
+   "F#7": "Fs7.mp3",
+   A7: "A7.mp3",
+   C8: "C8.mp3"
+ },
+ release: 1,
+ baseUrl: "https://tonejs.github.io/audio/salamander/"
+}).toDestination();
+
+ document.getElementById("status").innerText="音声ON";
+};
+
+/* 鍵盤生成 */
+const keyboard=document.getElementById("keyboard");
+const startNote=21; // C4
+const endNote=108;   // C6
+const whitePattern=[0,2,4,5,7,9,11];
+let whiteIndex=0;
+
+for(let n=startNote;n<=endNote;n++){
+ if(whitePattern.includes(n%12)){
+   let key=document.createElement("div");
+   key.className="white";
+   key.style.left=(whiteIndex*24)+"px";
+   key.dataset.note=n;
+   keyboard.appendChild(key);
+   whiteIndex++;
+ }
+}
+
+for(let n=startNote;n<=endNote;n++){
+ if(!whitePattern.includes(n%12)){
+   let whites=[...keyboard.children].filter(k=>k.className==="white" && k.dataset.note<n).length;
+   let key=document.createElement("div");
+   key.className="black";
+   key.style.left=(whites*24-8)+"px";
+   key.dataset.note=n;
+   keyboard.appendChild(key);
+ }
+}
+
+/* 光らせる */
+function highlight(note,on){
+ let el=document.querySelector(`[data-note='${note}']`);
+ if(el){
+   if(on) el.classList.add("active");
+   else el.classList.remove("active");
+ }
+}
+
+/* 演奏 */
+function noteOn(note){
+ if(!synth) return;
+ synth.triggerAttack(Tone.Frequency(note-offset,"midi"));
+ highlight(note,true);
+ if(recording) activeNotes[note]=Tone.now();
+}
+
+function noteOff(note){
+ if(!synth) return;
+ synth.triggerRelease(Tone.Frequency(note-offset,"midi"));
+ highlight(note,false);
+ if(recording && activeNotes[note]){
+   recorded.push({
+     note,
+     start:activeNotes[note]-recordStart,
+     duration:Tone.now()-activeNotes[note]
+   });
+   delete activeNotes[note];
+ }
+}
+
+/* MIDI接続 */
+document.getElementById("midi").onclick=async()=>{
+ let access=await navigator.requestMIDIAccess();
+ let input=[...access.inputs.values()][0];
+ input.onmidimessage=e=>{
+   let [cmd,note,vel]=e.data;
+   if(cmd===144 && vel>0) noteOn(note);
+   if(cmd===128 || (cmd===144 && vel===0)) noteOff(note);
+ };
+ document.getElementById("status").innerText="MIDI接続OK";
+};
+
+/* キーボード */
+const keyMap={
+ a:60,s:62,d:64,f:65,g:67,h:69,j:71,k:72,
+ w:61,e:63,t:66,y:68,u:70
+};
+
+document.addEventListener("keydown",e=>{
+ if(keyMap[e.key]) noteOn(keyMap[e.key]);
+});
+document.addEventListener("keyup",e=>{
+ if(keyMap[e.key]) noteOff(keyMap[e.key]);
+});
+
+/* 録音 */
+document.getElementById("rec").onclick=()=>{
+ if(!recording){
+   recorded=[];
+   recordStart=Tone.now();
+   recording=true;
+   document.getElementById("status").innerText="録音中";
+ }else{
+   recording=false;
+   document.getElementById("status").innerText="録音停止";
+ }
+};
+
+/* MIDIアップロード */
+document.getElementById("upload").addEventListener("change",async e=>{
+ const file=e.target.files[0];
+ const buffer=await file.arrayBuffer();
+ uploadedMidi=new Midi(buffer);
+});
+
+document.getElementById("playMidi").onclick=()=>{
+ if(!uploadedMidi) return;
+ uploadedMidi.tracks.forEach(track=>{
+   track.notes.forEach(n=>{
+     setTimeout(()=>{
+       noteOn(n.midi);
+       setTimeout(()=>noteOff(n.midi),n.duration*1000);
+     },n.time*1000);
+   });
+ });
+};
+</script>
+
+</body>
+</html>
