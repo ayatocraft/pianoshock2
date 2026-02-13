@@ -182,8 +182,10 @@
 </div>
 
 <script>
+let activeNotes = {};
+let piano;
 let loadedMidi = null;
-let synth, recorder, chunks = [];
+let piano, recorder, chunks = [];
 let recordingMidi = false, recordedMidiNotes = [], midiStartTime;
 let midiOffset = 0, isCalibrating = false;
 const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -232,7 +234,7 @@ document.getElementById("start").onclick = async () => {
   console.log("AudioContext started");
 };
   
-const piano = new Tone.Sampler({
+piano = new Tone.Sampler({
   urls: {
     "A0": "A0.mp3",
     "C3": "C3.mp3",
@@ -247,12 +249,12 @@ const piano = new Tone.Sampler({
   if (!recorder) return;
 
   if (recorder.state === "inactive") {
-    synth.connect(dest); // ←録音開始時だけ接続
+    piano.connect(dest); // ←録音開始時だけ接続
     recorder.start();
     e.target.classList.add("active-mode");
   } else {
     recorder.stop();
-    synth.disconnect(dest); // ←録音終了したら切断
+    piano.disconnect(dest); // ←録音終了したら切断
     e.target.classList.remove("active-mode");
   }
 };
@@ -280,9 +282,9 @@ function noteOn(rawNote) {
     return;
   }
   const note = rawNote + midiOffset;
-  if (!synth || note < 21 || note > 108) return;
+  if (!piano || note < 21 || note > 108) return;
 
-  synth.triggerAttack(Tone.Frequency(note, "midi"));
+  piano.triggerAttack(Tone.Frequency(note, "midi"));
   const el = document.querySelector(`[data-note='${note}']`);
   if (el) el.classList.add("active");
 
@@ -293,8 +295,8 @@ function noteOn(rawNote) {
 
 function noteOff(rawNote) {
   const note = rawNote + midiOffset;
-  if (!synth) return;
-  synth.triggerRelease(Tone.Frequency(note, "midi"));
+  if (!piano) return;
+  piano.triggerRelease(Tone.Frequency(note, "midi"));
   const el = document.querySelector(`[data-note='${note}']`);
   if (el) el.classList.remove("active");
 
@@ -387,7 +389,7 @@ const pcKeys = { a:60, w:61, s:62, e:63, d:64, f:65, t:66, g:67, y:68, h:69, u:7
 document.addEventListener("keydown", e => { if(pcKeys[e.key] && !e.repeat) noteOn(pcKeys[e.key] - midiOffset); });
 document.addEventListener("keyup", e => { if(pcKeys[e.key]) noteOff(pcKeys[e.key] - midiOffset); });
 document.getElementById("playMidi").onclick = () => {
-  if (!loadedMidi || !synth) {
+  if (!loadedMidi || !piano) {
     alert("MIDI が読み込まれていません。");
     return;
   }
@@ -401,7 +403,7 @@ document.getElementById("playMidi").onclick = () => {
 
       // ノートオン
       Tone.Transport.schedule((time) => {
-        synth.triggerAttack(Tone.Frequency(midi, "midi"), time);
+        piano.triggerAttack(Tone.Frequency(midi, "midi"), time);
 
         const el = document.querySelector(`[data-note='${midi}']`);
         if (el) el.classList.add("active");
@@ -409,7 +411,7 @@ document.getElementById("playMidi").onclick = () => {
 
       // ノートオフ
       Tone.Transport.schedule((time) => {
-        synth.triggerRelease(Tone.Frequency(midi, "midi"), time);
+        piano.triggerRelease(Tone.Frequency(midi, "midi"), time);
 
         const el = document.querySelector(`[data-note='${midi}']`);
         if (el) el.classList.remove("active");
@@ -423,6 +425,7 @@ document.getElementById("playMidi").onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
