@@ -232,14 +232,19 @@ document.getElementById("start").onclick = async () => {
   const dest = Tone.context.createMediaStreamDestination();
   recorder = new MediaRecorder(dest.stream);
   
-synth = new Tone.Sampler({
-  urls: {
-    C4: "C4.mp3",
-    E4: "E4.mp3",
-    G4: "G4.mp3"
+synth = new Tone.PolySynth(Tone.Synth, {
+  oscillator: { type: "triangle" },
+  envelope: {
+    attack: 0.002,
+    decay: 0.3,
+    sustain: 0.0,
+    release: 1.2
   },
-  release: 1,
-  baseUrl: "your-lightweight-samples/"
+  filter: {
+    type: "lowpass",
+    frequency: 8000,
+    rolloff: -24
+  }
 }).toDestination();
   
   synth.connect(dest);
@@ -407,6 +412,7 @@ document.getElementById("playMidi").onclick = async () => {
 </script>
 </body>
 </html>
+
 
 
 
