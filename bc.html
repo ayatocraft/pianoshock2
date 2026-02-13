@@ -232,22 +232,30 @@ document.getElementById("start").onclick = async () => {
   const dest = Tone.context.createMediaStreamDestination();
   recorder = new MediaRecorder(dest.stream);
   
-synth = new Tone.PolySynth(Tone.Synth, {
-  oscillator: { type: "triangle" },
-  envelope: {
-    attack: 0.002,
-    decay: 0.3,
-    sustain: 0.0,
-    release: 1.2
+const piano = new Tone.Sampler({
+  urls: {
+    "A0": "A0.mp3",
+    "C3": "C3.mp3",
+    "F#4": "Fs4.mp3",
+    "C6": "C6.mp3"
   },
-  filter: {
-    type: "lowpass",
-    frequency: 8000,
-    rolloff: -24
-  }
+  release: 1,
+  baseUrl: "https://tonejs.github.io/audio/salamander/",
 }).toDestination();
   
-  synth.connect(dest);
+ document.getElementById("rec-audio").onclick = (e) => {
+  if (!recorder) return;
+
+  if (recorder.state === "inactive") {
+    synth.connect(dest); // ←録音開始時だけ接続
+    recorder.start();
+    e.target.classList.add("active-mode");
+  } else {
+    recorder.stop();
+    synth.disconnect(dest); // ←録音終了したら切断
+    e.target.classList.remove("active-mode");
+  }
+};
   recorder.ondataavailable = e => chunks.push(e.data);
   recorder.onstop = () => {
     const blob = new Blob(chunks, { type: 'audio/wav' });
@@ -378,40 +386,44 @@ document.getElementById("calibrate").onclick = (e) => {
 const pcKeys = { a:60, w:61, s:62, e:63, d:64, f:65, t:66, g:67, y:68, h:69, u:70, j:71, k:72 };
 document.addEventListener("keydown", e => { if(pcKeys[e.key] && !e.repeat) noteOn(pcKeys[e.key] - midiOffset); });
 document.addEventListener("keyup", e => { if(pcKeys[e.key]) noteOff(pcKeys[e.key] - midiOffset); });
-document.getElementById("playMidi").onclick = async () => {
+document.getElementById("playMidi").onclick = () => {
   if (!loadedMidi || !synth) {
     alert("MIDI が読み込まれていません。");
     return;
   }
 
-  const now = Tone.now();
+  Tone.Transport.cancel();
+  Tone.Transport.position = 0;
 
   loadedMidi.tracks.forEach(track => {
     track.notes.forEach(note => {
-      const t = now + note.time;
       const midi = note.midi;
 
-      // 音を鳴らす
-      synth.triggerAttackRelease(
-        Tone.Frequency(midi, "midi"),
-        note.duration,
-        t
-      );
+      // ノートオン
+      Tone.Transport.schedule((time) => {
+        synth.triggerAttack(Tone.Frequency(midi, "midi"), time);
 
-      // 鍵盤を光らせる
-      const el = document.querySelector(`[data-note='${midi}']`);
-      if (el) {
-        setTimeout(() => el.classList.add("active"), note.time * 1000);
-        setTimeout(() => el.classList.remove("active"), (note.time + note.duration) * 1000);
-      }
+        const el = document.querySelector(`[data-note='${midi}']`);
+        if (el) el.classList.add("active");
+      }, note.time);
+
+      // ノートオフ
+      Tone.Transport.schedule((time) => {
+        synth.triggerRelease(Tone.Frequency(midi, "midi"), time);
+
+        const el = document.querySelector(`[data-note='${midi}']`);
+        if (el) el.classList.remove("active");
+      }, note.time + note.duration);
     });
   });
 
+  Tone.Transport.start();
   document.getElementById("st-text").innerText = "PLAYING MIDI...";
 };
 </script>
 </body>
 </html>
+
 
 
 
