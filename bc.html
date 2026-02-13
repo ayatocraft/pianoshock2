@@ -229,8 +229,8 @@ for (let n = 21; n <= 108; n++) {
 /* 2. 音声初期化 */
 document.getElementById("start").onclick = async () => {
   await Tone.start();
-  const dest = Tone.context.createMediaStreamDestination();
-  recorder = new MediaRecorder(dest.stream);
+  console.log("AudioContext started");
+};
   
 const piano = new Tone.Sampler({
   urls: {
@@ -423,6 +423,7 @@ document.getElementById("playMidi").onclick = () => {
 </script>
 </body>
 </html>
+
 
 
 
