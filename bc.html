@@ -2,286 +2,404 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Pianoshock 2</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pianoshock 2 Pro - Ultimate Edition</title>
 <script src="https://unpkg.com/tone@14.7.77/build/Tone.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.js"></script>
-
 <style>
-body{
-  margin:0;
-  background:#e5e5e7;
-  font-family:-apple-system;
-  text-align:center;
-}
+  :root {
+    --bg: #0b0b0e;
+    --panel: #1a1a20;
+    --accent: #00e5ff; /* ネオンブルー */
+    --learn: #ff9100;  /* 教育用オレンジ */
+    --danger: #ff4d4d;
+    --text: #e0e0e0;
+  }
 
-#controls{
-  padding:15px;
-}
+  body {
+    margin: 0;
+    background: var(--bg);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+  }
 
-button,input{
-  padding:8px 12px;
-  margin:4px;
-  border-radius:10px;
-  border:none;
-  background:#d1d1d6;
-  font-size:14px;
-}
+  /* メインレイアウト */
+  #app { display: flex; flex-direction: column; height: 100vh; }
 
-#keyboardWrapper{
-  overflow-x:auto;
-  width:100%;
-}
+  #header {
+    background: var(--panel);
+    padding: 15px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+    border-bottom: 2px solid var(--accent);
+    z-index: 100;
+  }
 
-#keyboard{
-  position:relative;
-  height:220px;
-  margin:20px auto;
-}
+  h1 {
+    margin: 0 0 15px 0;
+    font-size: 1rem;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    text-align: center;
+  }
 
-.white{
-  position:relative;
-  display:inline-block;
-  width:22px;
-  height:200px;
-  background:linear-gradient(to bottom,#fff,#ddd);
-  border:1px solid #aaa;
-  border-radius:0 0 4px 4px;
-  box-sizing:border-box;
-}
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
 
-.black{
-  position:absolute;
-  width:14px;
-  height:120px;
-  background:linear-gradient(to bottom,#333,#000);
-  border-radius:0 0 3px 3px;
-  z-index:2;
-}
+  button, .file-label {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: #2a2a35;
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 11px;
+    transition: 0.2s;
+  }
 
-.active{
-  background:#4da3ff !important;
-}
+  button:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+  button.active-mode { background: var(--danger); animation: pulse 1.5s infinite; }
+  button.calib-mode { background: #ffcc00; color: #000; }
 
-#status{
-  display:block;
-  margin-top:8px;
-}
+  /* 教育パネル */
+  #edu-panel {
+    background: #22222b;
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid #333;
+  }
+  .edu-btn { border-color: var(--learn); color: var(--learn); }
+  .edu-btn:hover { background: var(--learn); color: #000; }
+
+  /* 鍵盤エリア */
+  #keyboard-container {
+    flex-grow: 1;
+    overflow-x: auto;
+    background: #000;
+    display: flex;
+    align-items: center;
+    padding: 20px 0;
+  }
+
+  #keyboard {
+    position: relative;
+    width: 2100px; /* 88鍵の合計幅 */
+    height: 280px;
+    margin: 0 auto;
+  }
+
+  .white {
+    position: absolute;
+    width: 40px;
+    height: 250px;
+    background: linear-gradient(to bottom, #eee 0%, #fff 100%);
+    border: 1px solid #111;
+    z-index: 1;
+    border-radius: 0 0 6px 6px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 10px;
+    color: #999;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .black {
+    position: absolute;
+    width: 26px;
+    height: 150px;
+    background: linear-gradient(to bottom, #333 0%, #000 100%);
+    border: 1px solid #000;
+    z-index: 2;
+    border-radius: 0 0 4px 4px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 8px;
+    color: #fff;
+    font-size: 9px;
+  }
+
+  /* 状態表示クラス */
+  .active { background: var(--accent) !important; box-shadow: 0 0 30px var(--accent) !important; color: #000 !important; transform: translateY(2px); }
+  .guide { background: var(--learn) !important; animation: blink 1s infinite; color: #000 !important; }
+
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  #status-bar { padding: 5px; text-align: center; font-size: 12px; background: #000; color: #666; }
+  .val { color: var(--accent); font-weight: bold; }
 </style>
 </head>
 <body>
 
-<div id="controls">
-<button id="start">音声ON</button>
-<button id="connectMIDI">MIDI接続</button>
-<button id="recordBtn">録音開始</button>
-<button id="downloadMidi">録音MIDI保存</button>
-<input type="file" id="uploadMidi" accept=".mid">
-<button id="playUploaded">お手本再生</button>
-<span id="status"></span>
-</div>
+<div id="app">
+  <div id="header">
+    <h1>Pianoshock 2 Pro <small>Ultimate</small></h1>
+    <div class="controls">
+      <button id="start">1. AUDIO ON</button>
+      <button id="midi-conn">2. MIDI CONNECT</button>
+      <button id="calibrate">SET MIDDLE C</button>
+      <button id="rec-audio">REC WAV</button>
+      <button id="rec-midi">REC MIDI</button>
+      <label class="file-label" for="upload">UPLOAD MIDI</label>
+      <input type="file" id="upload" accept=".mid">
+      <button id="playMidi">PLAY</button>
+    </div>
+  </div>
 
-<div id="keyboardWrapper">
-  <div id="keyboard"></div>
+  <div id="edu-panel">
+    <span style="font-size:12px; font-weight:bold;">🎓 LEARN:</span>
+    <button class="edu-btn" onclick="setGuide('scale')">Do-Re-Mi</button>
+    <button class="edu-btn" onclick="setGuide('c-maj')">C Chord</button>
+    <button class="edu-btn" onclick="setGuide('f-maj')">F Chord</button>
+    <button class="edu-btn" onclick="setGuide('g-maj')">G Chord</button>
+    <button onclick="setGuide(null)" style="color:var(--danger)">OFF</button>
+    <span id="guide-msg" style="color:var(--learn); font-size:12px; margin-left:10px;"></span>
+  </div>
+
+  <div id="keyboard-container">
+    <div id="keyboard"></div>
+  </div>
+
+  <div id="status-bar">
+    STATUS: <span id="st-text" class="val">READY</span> | 
+    OFFSET: <span id="st-off" class="val">0</span> | 
+    MIDI: <span id="st-midi" class="val">NONE</span>
+  </div>
 </div>
 
 <script>
-let sampler;
-let recording=false;
-let recordedNotes=[];
-let activeNotes={};
-let recordStart;
-let uploadedMidi;
+let loadedMidi = null;
+let synth, recorder, chunks = [];
+let recordingMidi = false, recordedMidiNotes = [], midiStartTime;
+let midiOffset = 0, isCalibrating = false;
+const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-const startNote=21;  // A0
-const endNote=108;   // C8
-const whitePattern=[0,2,4,5,7,9,11];
-
-const keyboard=document.getElementById("keyboard");
-
-/* ---------- 音初期化 ---------- */
-document.getElementById("start").onclick=async()=>{
-  await Tone.start();
-
-  sampler = new Tone.Sampler({
-    urls:{
-      A0:"A0.mp3",
-      C1:"C1.mp3",
-      "D#1":"Ds1.mp3",
-      "F#1":"Fs1.mp3",
-      A1:"A1.mp3",
-      C2:"C2.mp3",
-      "D#2":"Ds2.mp3",
-      "F#2":"Fs2.mp3",
-      A2:"A2.mp3",
-      C3:"C3.mp3",
-      "D#3":"Ds3.mp3",
-      "F#3":"Fs3.mp3",
-      A3:"A3.mp3",
-      C4:"C4.mp3",
-      "D#4":"Ds4.mp3",
-      "F#4":"Fs4.mp3",
-      A4:"A4.mp3",
-      C5:"C5.mp3",
-      "D#5":"Ds5.mp3",
-      "F#5":"Fs5.mp3",
-      A5:"A5.mp3",
-      C6:"C6.mp3",
-      "D#6":"Ds6.mp3",
-      "F#6":"Fs6.mp3",
-      A6:"A6.mp3",
-      C7:"C7.mp3",
-      "D#7":"Ds7.mp3",
-      "F#7":"Fs7.mp3",
-      A7:"A7.mp3",
-      C8:"C8.mp3"
-    },
-    release:1,
-    baseUrl:"https://tonejs.github.io/audio/salamander/"
-  }).toDestination();
-
-  document.getElementById("status").innerText="音声ON";
+const guides = {
+  'scale': [60, 62, 64, 65, 67, 69, 71, 72],
+  'c-maj': [60, 64, 67],
+  'f-maj': [65, 69, 72],
+  'g-maj': [67, 71, 74]
 };
 
-/* ---------- 鍵盤生成 ---------- */
-let whiteIndex=0;
-let whitePositions={};
+/* 1. 鍵盤の生成 */
+const keyboard = document.getElementById("keyboard");
+const whitePattern = [0, 2, 4, 5, 7, 9, 11];
+let whiteIndex = 0;
 
-for(let n=startNote;n<=endNote;n++){
-  if(whitePattern.includes(n%12)){
-    let key=document.createElement("div");
-    key.className="white";
-    key.dataset.note=n;
-    key.style.left=(whiteIndex*22)+"px";
-    key.style.position="absolute";
-    keyboard.appendChild(key);
-    whitePositions[n]=whiteIndex*22;
+for (let n = 21; n <= 108; n++) {
+  const isWhite = whitePattern.includes(n % 12);
+  const key = document.createElement("div");
+  key.className = isWhite ? "white" : "black";
+  key.dataset.note = n;
+  key.innerHTML = `<span>${noteNames[n % 12]}</span>`;
+  
+  if (isWhite) {
+    key.style.left = (whiteIndex * 40) + "px";
     whiteIndex++;
+  } else {
+    const whitesBefore = [...keyboard.children].filter(k => k.className === "white").length;
+    key.style.left = (whitesBefore * 40 - 13) + "px";
+  }
+
+  // マウス/タッチイベント
+  const startPlay = (e) => { e.preventDefault(); noteOn(n - midiOffset); };
+  const stopPlay = (e) => { e.preventDefault(); noteOff(n - midiOffset); };
+  key.addEventListener("mousedown", startPlay);
+  key.addEventListener("mouseup", stopPlay);
+  key.addEventListener("touchstart", startPlay, {passive: false});
+  key.addEventListener("touchend", stopPlay, {passive: false});
+  
+  keyboard.appendChild(key);
+}
+
+/* 2. 音声初期化 */
+document.getElementById("start").onclick = async () => {
+  await Tone.start();
+  const dest = Tone.context.createMediaStreamDestination();
+  recorder = new MediaRecorder(dest.stream);
+  
+  synth = new Tone.Sampler({
+    urls: { A0: "A0.mp3", C1: "C1.mp3", "D#1": "Ds1.mp3", "F#1": "Fs1.mp3", A1: "A1.mp3", C2: "C2.mp3", "D#2": "Ds2.mp3", "F#2": "Fs2.mp3", A2: "A2.mp3", C3: "C3.mp3", "D#3": "Ds3.mp3", "F#3": "Fs3.mp3", A3: "A3.mp3", C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3", C5: "C5.mp3", "D#5": "Ds5.mp3", "F#5": "Fs5.mp3", A5: "A5.mp3", C6: "C6.mp3", "D#6": "Ds6.mp3", "F#6": "Fs6.mp3", A6: "A6.mp3", C7: "C7.mp3", "D#7": "Ds7.mp3", "F#7": "Fs7.mp3", A7: "A7.mp3", C8: "C8.mp3" },
+    release: 1,
+    baseUrl: "https://tonejs.github.io/audio/salamander/"
+  }).toDestination();
+  
+  synth.connect(dest);
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'audio/wav' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'piano_record.wav';
+    a.click();
+    chunks = [];
+  };
+  
+  document.getElementById("start").style.background = "var(--accent)";
+  document.getElementById("st-text").innerText = "AUDIO ACTIVE";
+};
+
+/* 3. 演奏ロジック */
+function noteOn(rawNote) {
+  if (isCalibrating) {
+    midiOffset = 60 - rawNote;
+    document.getElementById("st-off").innerText = midiOffset;
+    isCalibrating = false;
+    document.getElementById("calibrate").classList.remove("calib-mode");
+    return;
+  }
+  const note = rawNote + midiOffset;
+  if (!synth || note < 21 || note > 108) return;
+
+  synth.triggerAttack(Tone.Frequency(note, "midi"));
+  const el = document.querySelector(`[data-note='${note}']`);
+  if (el) el.classList.add("active");
+
+  if (recordingMidi) {
+    activeNotes[note] = Tone.now();
   }
 }
 
-for(let n=startNote;n<=endNote;n++){
-  if(!whitePattern.includes(n%12)){
-    let prev=n-1;
-    while(!whitePositions[prev]) prev--;
-    let key=document.createElement("div");
-    key.className="black";
-    key.dataset.note=n;
-    key.style.left=(whitePositions[prev]+15)+"px";
-    keyboard.appendChild(key);
-  }
-}
+function noteOff(rawNote) {
+  const note = rawNote + midiOffset;
+  if (!synth) return;
+  synth.triggerRelease(Tone.Frequency(note, "midi"));
+  const el = document.querySelector(`[data-note='${note}']`);
+  if (el) el.classList.remove("active");
 
-keyboard.style.width=(whiteIndex*22)+"px";
-
-/* ---------- 光らせる ---------- */
-function highlight(note,on){
-  const el=document.querySelector("[data-note='"+note+"']");
-  if(el){
-    if(on) el.classList.add("active");
-    else el.classList.remove("active");
-  }
-}
-
-/* ---------- 演奏 ---------- */
-function noteOn(note){
-  if(!sampler) return;
-  sampler.triggerAttack(Tone.Frequency(note,"midi"));
-  highlight(note,true);
-  if(recording) activeNotes[note]=Tone.now();
-}
-
-function noteOff(note){
-  if(!sampler) return;
-  sampler.triggerRelease(Tone.Frequency(note,"midi"));
-  highlight(note,false);
-  if(recording && activeNotes[note]){
-    recordedNotes.push({
-      midi:note,
-      time:activeNotes[note]-recordStart,
-      duration:Tone.now()-activeNotes[note]
+  if (recordingMidi && activeNotes[note]) {
+    recordedMidiNotes.push({
+      midi: note,
+      time: activeNotes[note] - midiStartTime,
+      duration: Tone.now() - activeNotes[note]
     });
     delete activeNotes[note];
   }
 }
 
-/* ---------- MIDI接続 ---------- */
-document.getElementById("connectMIDI").onclick=async()=>{
-  const access=await navigator.requestMIDIAccess();
-  const input=[...access.inputs.values()][0];
-  input.onmidimessage=e=>{
-    const [cmd,note,vel]=e.data;
-    if(cmd===144 && vel>0) noteOn(note);
-    if(cmd===128 || (cmd===144 && vel===0)) noteOff(note);
-  };
-  document.getElementById("status").innerText="MIDI接続OK";
-};
+/* 4. 教育機能 */
+function setGuide(type) {
+  document.querySelectorAll('.white, .black').forEach(el => el.classList.remove('guide'));
+  const notes = guides[type];
+  if (notes) {
+    notes.forEach(n => {
+      const el = document.querySelector(`[data-note='${n}']`);
+      if (el) el.classList.add('guide');
+    });
+    document.getElementById("guide-msg").innerText = "Highlighting keys...";
+  } else {
+    document.getElementById("guide-msg").innerText = "";
+  }
+}
 
-/* ---------- キーボード入力 ---------- */
-const keyMap={
-  a:60,s:62,d:64,f:65,g:67,h:69,j:71,k:72,
-  w:61,e:63,t:66,y:68,u:70
-};
-
-document.addEventListener("keydown",e=>{
-  if(keyMap[e.key]) noteOn(keyMap[e.key]);
-});
-document.addEventListener("keyup",e=>{
-  if(keyMap[e.key]) noteOff(keyMap[e.key]);
-});
-
-/* ---------- 録音 ---------- */
-document.getElementById("recordBtn").onclick=()=>{
-  if(!recording){
-    recordedNotes=[];
-    recordStart=Tone.now();
-    recording=true;
-    document.getElementById("status").innerText="録音中";
-  }else{
-    recording=false;
-    document.getElementById("status").innerText="録音停止";
+/* 5. 録音・MIDI操作 */
+document.getElementById("rec-audio").onclick = (e) => {
+  if (!recorder) return;
+  if (recorder.state === "inactive") {
+    recorder.start();
+    e.target.classList.add("active-mode");
+  } else {
+    recorder.stop();
+    e.target.classList.remove("active-mode");
   }
 };
 
-/* ---------- MIDI保存 ---------- */
-document.getElementById("downloadMidi").onclick=()=>{
-  if(recordedNotes.length===0) return;
-  const midi=new Midi();
-  const track=midi.addTrack();
-  recordedNotes.forEach(n=>{
-    track.addNote({
-      midi:n.midi,
-      time:n.time,
-      duration:n.duration
-    });
-  });
-  const blob=new Blob([midi.toArray()],{type:"audio/midi"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="recording.mid";
-  a.click();
+document.getElementById("rec-midi").onclick = (e) => {
+  if (!recordingMidi) {
+    recordedMidiNotes = [];
+    activeNotes = {};
+    midiStartTime = Tone.now();
+    recordingMidi = true;
+    e.target.classList.add("active-mode");
+  } else {
+    recordingMidi = false;
+    e.target.classList.remove("active-mode");
+    const m = new Midi();
+    const t = m.addTrack();
+    recordedMidiNotes.forEach(n => t.addNote(n));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([m.toArray()], {type: "audio/midi"}));
+    a.download = "composition.mid";
+    a.click();
+  }
+};
+document.getElementById("upload").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const arrayBuffer = await file.arrayBuffer();
+  loadedMidi = new Midi(arrayBuffer);
+
+  document.getElementById("st-text").innerText = "MIDI LOADED";
+});
+/* 6. MIDI接続 & キャリブレーション */
+document.getElementById("midi-conn").onclick = async () => {
+  const access = await navigator.requestMIDIAccess();
+  for (let input of access.inputs.values()) {
+    document.getElementById("st-midi").innerText = input.name;
+    input.onmidimessage = e => {
+      const [cmd, note, vel] = e.data;
+      if (cmd === 144 && vel > 0) noteOn(note);
+      else if (cmd === 128 || (cmd === 144 && vel === 0)) noteOff(note);
+    };
+  }
 };
 
-/* ---------- MIDIアップロード ---------- */
-document.getElementById("uploadMidi").addEventListener("change",async e=>{
-  const file=e.target.files[0];
-  const buffer=await file.arrayBuffer();
-  uploadedMidi=new Midi(buffer);
-});
+document.getElementById("calibrate").onclick = (e) => {
+  isCalibrating = true;
+  e.target.classList.add("calib-mode");
+  document.getElementById("st-text").innerText = "PRESS MIDDLE C ON KEYBOARD";
+};
 
-/* ---------- お手本再生 ---------- */
-document.getElementById("playUploaded").onclick=()=>{
-  if(!uploadedMidi) return;
-  uploadedMidi.tracks.forEach(track=>{
-    track.notes.forEach(n=>{
-      setTimeout(()=>{
-        noteOn(n.midi);
-        setTimeout(()=>noteOff(n.midi),n.duration*1000);
-      },n.time*1000);
+/* 7. キーボード入力 */
+const pcKeys = { a:60, w:61, s:62, e:63, d:64, f:65, t:66, g:67, y:68, h:69, u:70, j:71, k:72 };
+document.addEventListener("keydown", e => { if(pcKeys[e.key] && !e.repeat) noteOn(pcKeys[e.key] - midiOffset); });
+document.addEventListener("keyup", e => { if(pcKeys[e.key]) noteOff(pcKeys[e.key] - midiOffset); });
+document.getElementById("playMidi").onclick = async () => {
+  if (!loadedMidi || !synth) {
+    alert("MIDI が読み込まれていません。");
+    return;
+  }
+
+  const now = Tone.now();
+
+  loadedMidi.tracks.forEach(track => {
+    track.notes.forEach(note => {
+      const t = now + note.time;
+      const midi = note.midi;
+
+      // 音を鳴らす
+      synth.triggerAttackRelease(
+        Tone.Frequency(midi, "midi"),
+        note.duration,
+        t
+      );
+
+      // 鍵盤を光らせる
+      const el = document.querySelector(`[data-note='${midi}']`);
+      if (el) {
+        setTimeout(() => el.classList.add("active"), note.time * 1000);
+        setTimeout(() => el.classList.remove("active"), (note.time + note.duration) * 1000);
+      }
     });
   });
+
+  document.getElementById("st-text").innerText = "PLAYING MIDI...";
 };
 </script>
-
 </body>
 </html>
