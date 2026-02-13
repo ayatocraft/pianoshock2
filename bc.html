@@ -232,7 +232,10 @@ document.getElementById("start").onclick = async () => {
   const dest = Tone.context.createMediaStreamDestination();
   recorder = new MediaRecorder(dest.stream);
   
-  synth = new Tone.PolySynth(Tone.Synth).toDestination();
+ synth = new Tone.PolySynth(Tone.Synth, {
+  oscillator: { type: "triangle" },
+  envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 1.2 }
+}).toDestination();
   
   synth.connect(dest);
   recorder.ondataavailable = e => chunks.push(e.data);
@@ -399,4 +402,5 @@ document.getElementById("playMidi").onclick = async () => {
 </script>
 </body>
 </html>
+
 
