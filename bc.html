@@ -182,6 +182,8 @@
 </div>
 
 <script>
+let activeNotes = {};
+const MAX_VOICES = 15; // ← ここで制限数を決める
 let loadedMidi = null;
 let synth, recorder, chunks = [];
 let recordingMidi = false, recordedMidiNotes = [], midiStartTime;
@@ -264,6 +266,10 @@ function noteOn(rawNote) {
   }
   const note = rawNote + midiOffset;
   if (!synth || note < 21 || note > 108) return;
+ const MAX_VOICES = 15; // ← 好きに変えてOK（8〜16が現実的）
+  if (Object.keys(activeNotes).length >= MAX_VOICES) {
+    return; // ← これだけで Rush E が軽くなる
+  }
 
   synth.triggerAttack(Tone.Frequency(note, "midi"));
   const el = document.querySelector(`[data-note='${note}']`);
@@ -403,3 +409,4 @@ document.getElementById("playMidi").onclick = async () => {
 </script>
 </body>
 </html>
+
