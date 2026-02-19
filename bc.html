@@ -428,7 +428,7 @@ document.getElementById("roombaConnect").onclick = async () => {
 
     // Start + Safe
     await roombaWriter.write(new Uint8Array([128]));
-    await roombaWriter.write(new Uint8Array([131]]));
+    await roombaWriter.write(new Uint8Array([131]));
 
     alert("Roomba Connected!");
   }catch(e){
@@ -438,6 +438,7 @@ document.getElementById("roombaConnect").onclick = async () => {
 </script>
 </body>
 </html>
+
 
 
 
