@@ -157,6 +157,8 @@
       <label class="file-label" for="upload">UPLOAD MIDI</label>
       <input type="file" id="upload" accept=".mid">
       <button id="playMidi">PLAY</button>
+      <button id="roombaMode">🤖 ROOMBA OFF</button>
+<button id="roombaConnect" disabled>CONNECT ROOMBA</button>
     </div>
   </div>
 
@@ -185,6 +187,10 @@
 let activeNotes = {};
 const MAX_VOICES = 10; // ← ここで制限数を決める
 let loadedMidi = null;
+// ===== Roomba追加 =====
+let roombaMode = false;
+let roombaPort = null;
+let roombaWriter = null;
 let synth, recorder, chunks = [];
 let recordingMidi = false, recordedMidiNotes = [], midiStartTime;
 let midiOffset = 0, isCalibrating = false;
@@ -406,8 +412,32 @@ document.getElementById("playMidi").onclick = async () => {
 
   document.getElementById("st-text").innerText = "PLAYING MIDI...";
 };
+  // ===== Roombaモード切替 =====
+document.getElementById("roombaMode").onclick = function(){
+  roombaMode = !roombaMode;
+  this.textContent = roombaMode ? "🤖 ROOMBA ON" : "🤖 ROOMBA OFF";
+  document.getElementById("roombaConnect").disabled = !roombaMode;
+};
+
+// ===== Roomba接続 =====
+document.getElementById("roombaConnect").onclick = async () => {
+  try{
+    roombaPort = await navigator.serial.requestPort();
+    await roombaPort.open({ baudRate:115200 });
+    roombaWriter = roombaPort.writable.getWriter();
+
+    // Start + Safe
+    await roombaWriter.write(new Uint8Array([128]));
+    await roombaWriter.write(new Uint8Array([131]]));
+
+    alert("Roomba Connected!");
+  }catch(e){
+    alert("connect error");
+  }
+};
 </script>
 </body>
 </html>
+
 
 
