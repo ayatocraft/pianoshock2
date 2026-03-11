@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MIDI → 楽譜</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi"></script>
+<script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.8.6/build/opensheetmusicdisplay.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+<style>
+body{
+font-family:sans-serif;
+text-align:center;
+background:#f5f5f5;
+}
+
+#score{
+width:1000px;
+margin:auto;
+background:white;
+padding:20px;
+}
+
+.controls{
+margin:20px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>MIDI → 楽譜</h2>
+
+<div class="controls">
+
+<input type="file" id="midiFile" accept=".mid,.midi">
+
+BPM
+<input type="number" id="bpm" value="120" style="width:70px">
+
+<button onclick="downloadPDF()">PDFダウンロード</button>
+
+</div>
+
+<div id="score"></div>
+
+<script>
+
+const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("score");
+
+document.getElementById("midiFile").onchange = async function(e){
+
+const file = e.target.files[0];
+const buffer = await file.arrayBuffer();
+
+const midi = new Midi(buffer);
+
+let tempo = 120;
+let beats = 4;
+let beatType = 4;
+
+/* テンポ自動検出 */
+
+if(midi.header.tempos.length>0){
+tempo = Math.round(midi.header.tempos[0].bpm);
+}else{
+tempo = document.getElementById("bpm").value;
+}
+
+/* 拍子自動検出 */
+
+if(midi.header.timeSignatures.length>0){
+beats = midi.header.timeSignatures[0].timeSignature[0];
+beatType = midi.header.timeSignatures[0].timeSignature[1];
+}
+
+/* MusicXML開始 */
+
+let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="3.1">
+
+<part-list>
+`;
+
+/* トラック定義 */
+
+midi.tracks.forEach((t,i)=>{
+
+xml += `
+<score-part id="P${i}">
+<part-name>Track ${i+1}</part-name>
+</score-part>
+`;
+
+});
+
+xml += `</part-list>`;
+
+/* 各トラック */
+
+midi.tracks.forEach((track,i)=>{
+
+xml += `<part id="P${i}">`;
+
+let measure = 1;
+let lastTime = -1;
+
+xml += `
+<measure number="${measure}">
+
+<attributes>
+<divisions>1</divisions>
+<key><fifths>0</fifths></key>
+<time>
+<beats>${beats}</beats>
+<beat-type>${beatType}</beat-type>
+</time>
+<clef>
+<sign>G</sign>
+<line>2</line>
+</clef>
+</attributes>
+
+<direction placement="above">
+<direction-type>
+<metronome>
+<beat-unit>quarter</beat-unit>
+<per-minute>${tempo}</per-minute>
+</metronome>
+</direction-type>
+<sound tempo="${tempo}"/>
+</direction>
+`;
+
+/* ノート */
+
+track.notes.forEach(n=>{
+
+let step = n.name[0];
+let octave = n.octave;
+
+/* 臨時記号追加 */
+
+let alterTag = "";
+
+if(n.name.includes("#")){
+alterTag = "<alter>1</alter>";
+}
+
+if(n.name.includes("b")){
+alterTag = "<alter>-1</alter>";
+}
+
+let chordTag="";
+
+if(n.time === lastTime){
+chordTag="<chord/>";
+}
+
+lastTime = n.time;
+
+xml+=`
+<note>
+${chordTag}
+<pitch>
+<step>${step}</step>
+${alterTag}
+<octave>${octave}</octave>
+</pitch>
+<duration>1</duration>
+<voice>1</voice>
+<type>quarter</type>
+</note>
+`;
+
+});
+
+xml += `</measure></part>`;
+
+});
+
+/* XML終了 */
+
+xml += `</score-partwise>`;
+
+await osmd.load(xml);
+osmd.render();
+
+}
+
+/* PDF */
+
+function downloadPDF(){
+html2pdf()
+.from(document.getElementById("score"))
+.set({
+margin:10,
+filename:"score.pdf",
+html2canvas:{scale:2},
+jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+})
+.save();
+}
+
+</script>
+
+</body>
+</html>
